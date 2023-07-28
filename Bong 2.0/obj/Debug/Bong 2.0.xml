@@ -22,6 +22,16 @@ Bong 2.0
   resource lookups using this strongly typed resource class.
 </summary>
 </member>
+<member name="P:Bong_2._0.My.Resources.Resources.bong_logo2">
+<summary>
+  Looks up a localized resource of type System.Drawing.Bitmap.
+</summary>
+</member>
+<member name="P:Bong_2._0.My.Resources.Resources.loading">
+<summary>
+  Looks up a localized resource of type System.Drawing.Bitmap.
+</summary>
+</member>
 <member name="P:Bong_2._0.My.Resources.Resources.plus_icon">
 <summary>
   Looks up a localized resource of type System.Drawing.Bitmap.

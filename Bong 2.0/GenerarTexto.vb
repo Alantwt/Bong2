@@ -12,15 +12,21 @@ Public Class GenerarTexto
     'https://replicate.com/joehoover/falcon-40b-instruct
     Dim falconModel As String = "7eb0f4b1ff770ab4f68c3a309dd4984469749b7323a3d47fd2d5e09d58836d3c"
     Dim llamaModel As String = "6b4da803a2382c08868c5af10a523892f38e2de1aafb2ee55b020d9efef2fdb8"
+    'https://replicate.com/yoadtew/zero-shot-image-to-text/api
+    Dim zeroShot As String = "7f2735bab48ff6caa414a3fff239b0d5de77a97f1791dcb7e0eb17c259aa11be"
 
     'url de las peticiones
     Dim apiUrl As String = "https://api.replicate.com/v1/predictions"
 
     'apitoken
-    Dim apiToken As String = "r8_cFTYuMZQYiRi5Qi6ximOyJOQG9hq91t0y7w3I"
+    Dim apiToken As String = "r8_0UoiP9TQZkdy5zYeqxmGh4gDXMSi1o21s5pAd"
 
     'respuesta de la api
     Dim apiOutput As String = ""
+
+    'carpeta de salida de las imagenes
+    Dim dirFileOut = "images\"
+    Dim fullDirFileOut As String = Path.Combine(Application.StartupPath, dirFileOut)
 
 
     Public Async Function prueba() As Task(Of String)
@@ -34,6 +40,27 @@ Public Class GenerarTexto
             End Function
         )
         Return xd
+    End Function
+
+    Public Function LeerArchivoTxt() As Dictionary(Of String, String)
+        Dim mapa As New Dictionary(Of String, String)()
+        Dim rutaArchivo As String = fullDirFileOut & "img2text.txt"
+
+        If File.Exists(rutaArchivo) Then
+            Using sr As New StreamReader(rutaArchivo)
+                While Not sr.EndOfStream
+                    Dim linea As String = sr.ReadLine()
+                    Dim partes As String() = linea.Split(","c)
+                    If partes.Length = 2 Then
+                        Dim ruta As String = partes(0).Trim()
+                        Dim enlace As String = partes(1).Trim()
+                        mapa(ruta) = enlace
+                    End If
+                End While
+            End Using
+        End If
+
+        Return mapa
     End Function
 
     Public Async Function text2text(prompt As String) As Task(Of String)
@@ -133,17 +160,25 @@ Public Class GenerarTexto
                         request.Headers.Add("Authorization", "Token " & apiToken)
                         request.Headers.Accept.Add(New MediaTypeWithQualityHeaderValue("application/json"))
 
-                        'leer la imagen
-                        Dim imageBytes As Byte() = File.ReadAllBytes(pathImage)
-                        Dim base64Image As String = Convert.ToBase64String(imageBytes)
+                        If Not File.Exists(fullDirFileOut & "img2text.txt") Then
+                            Return "No hay ninguna imagen generada hasta el momento"
+                        End If
 
-                        Dim requestBody As String = String.Format("{{""version"": ""{0}"", ""input"": {{""image"": ""{1}""}}}}", miniGPT4Model, base64Image)
+                        Dim mapPathsLinks = LeerArchivoTxt()
+                        Dim imgLink As String = ""
+                        Try
+                            imgLink = mapPathsLinks(pathImage)
+                        Catch ex As Exception
+                            Return "imagen no encontrada en las generaciones"
+                        End Try
+
+                        Dim requestBody As String = String.Format("{{""version"": ""{0}"", ""input"": {{""image"": ""{1}""}}}}", zeroShot, imgLink)
                         Dim content As New StringContent(requestBody)
                         content.Headers.ContentType = New MediaTypeHeaderValue("application/json")
                         request.Content = content
 
                         Dim response As HttpResponseMessage = Await client.SendAsync(request)
-
+                        Debug.Print("Respuesta code de la api: " & response.StatusCode)
                         If response.IsSuccessStatusCode Then
                             Dim jsonObject As JObject = JObject.Parse(response.Content.ReadAsStringAsync().Result)
                             Dim id As String = jsonObject("id").ToString()
@@ -177,7 +212,22 @@ Public Class GenerarTexto
             Dim response As HttpResponseMessage = client.SendAsync(request).Result
 
             Dim jsonObject As JObject = JObject.Parse(response.Content.ReadAsStringAsync().Result)
-            apiOutput = jsonObject("output").ToString()
+            Debug.Print("content: " & jsonObject.ToString())
+            If jsonObject("status").ToString().Equals("succeeded") Then
+
+                Dim textoBuscado As String = "Best mixed:"
+                Dim index As Integer = jsonObject("output").ToString().IndexOf(textoBuscado)
+
+                If index >= 0 Then
+                    Dim textoDespues As String = jsonObject("output").ToString().Substring(index + textoBuscado.Length)
+                    apiOutput = textoDespues.TrimStart()
+                Else
+                    apiOutput = ""
+                End If
+
+                Debug.Print("output: " & apiOutput)
+            End If
+
             Return jsonObject("status").ToString()
         End Using
     End Function

@@ -2,14 +2,19 @@
 Imports System.Windows.Forms.VisualStyles.VisualStyleElement.Rebar
 
 Public Class Form1
-    Dim BaseD As New BD()
+
+    Dim BaseD2 As New BD_2()
     Dim cantidadChats As Integer = 0
     Dim lastHeightChats As Integer = 20
     Dim modo = "texto"
     Dim textGenerate As New GenerarTexto()
     Dim imageGenerate As New GenerarImagen()
-    Dim conversacionID As Integer = 0
+
+
+    Dim chatID2 = "none"
     Private Sub Form1_Load(sender As Object, e As EventArgs) Handles MyBase.Load
+        loadingBox.Visible = False
+
         Dim texto As String = "Bienvenido a Bong"
         Dim letras As Char() = texto.ToCharArray()
 
@@ -30,61 +35,76 @@ Public Class Form1
 
 
 
-        Dim chatNames As List(Of String) = BaseD.GetChatNames()
+        Dim chat_group As List(Of String) = BaseD2.consultar_historialChats()
 
-        For Each chatName As String In chatNames
-            ListBox_history.Items.Add(chatName)
+        For Each chat_group2 As String In chat_group
+            ListBox_history.Items.Add(chat_group2)
         Next
 
 
     End Sub
 
-    Private Async Function send_btn_ClickAsync(sender As Object, e As EventArgs) As Task Handles send_btn.Click
+    Private  Function send_btn_ClickAsync(sender As Object, e As EventArgs) As Task Handles send_btn.Click
+        EnviarChat()
+    End Function
+
+    Public Async Sub EnviarChat()
         LogoBienvenida.Visible = False
         Dim textoTemp = TextBoxChat.Text
-        If conversacionID = 0 And BaseD.ObtenerUltimoID() > 0 Then
-
-            BaseD.Guardarchat(BaseD.ObtenerUltimoID())
-            conversacionID = BaseD.ObtenerUltimoID()
-            ListBox_history.Items.Add("Conversacion" & conversacionID - 1)
-            ListBox_history.SelectedIndex = ListBox_history.Items.Count - 1
-            MsgBox("entro 1- " & conversacionID.ToString() & " - " & BaseD.ObtenerUltimoID().ToString())
-        ElseIf conversacionID > 0 Then
-            ListBox_history.Items.Add("Conversacion" & conversacionID)
-            MsgBox("entro 2 - " & conversacionID.ToString() & " - " & BaseD.ObtenerUltimoID().ToString())
-        Else
-            BaseD.Guardarchat(1)
-            conversacionID = BaseD.ObtenerUltimoID()
-            ListBox_history.Items.Add("Conversacion" & conversacionID)
-            MsgBox("entro 3 - " & conversacionID.ToString() & " - " & BaseD.ObtenerUltimoID().ToString())
-        End If
+        loadingBox.Visible = True
 
         If modo = "texto" Then
 
-            chatCard("rigth", "Alan", textoTemp)
+            chatCard("rigth", Inicio.nombreBD, textoTemp)
             TextBoxChat.Text = ""
             TextBoxChat.Enabled = False
+
+            If chatID2.Equals("none") Then
+                chatID2 = Guid.NewGuid().ToString("N")
+                ListBox_history.Items.Add(chatID2)
+                BaseD2.guardar_chat("user", "text", textoTemp, chatID2)
+
+            Else
+                BaseD2.guardar_chat("user", "text", textoTemp, chatID2)
+
+            End If
+
             'Dim textResponse = Await textGenerate.text2text(textoTemp)
-            Dim textResponse = "hola testo respondido"
+
+            Dim textResponse = Await textGenerate.text2text(textoTemp)
             chatCard("left", "Bong", textResponse)
             TextBoxChat.Enabled = True
 
-            BaseD.GuardarDatos(textoTemp, textResponse, conversacionID)
+            BaseD2.guardar_chat("bong", "text", textResponse, chatID2)
         Else
-            chatCard("rigth", "Alan", textoTemp)
+            chatCard("rigth", Inicio.nombreBD, textoTemp)
             TextBoxChat.Text = ""
             TextBoxChat.Enabled = False
-            Dim imagePathResponse = Await imageGenerate.prueba(textoTemp)
-            chatImageCard("left", "Bong", "C:\Users\anton\Documents\herramientas\Bong\" & imagePathResponse)
+
+            If chatID2.Equals("none") Then
+                chatID2 = Guid.NewGuid().ToString("N")
+                ListBox_history.Items.Add(chatID2)
+                BaseD2.guardar_chat("user", "text", textoTemp, chatID2)
+            Else
+                BaseD2.guardar_chat("user", "text", textoTemp, chatID2)
+            End If
+
+            Dim imagePathResponse = Await imageGenerate.text2img(textoTemp)
+            Dim path_completa = imagePathResponse
+            chatImageCard("left", "Bong", path_completa)
             TextBoxChat.Enabled = True
+
+            BaseD2.guardar_chat("bong", "image", path_completa, chatID2)
         End If
-    End Function
+        ListBox_history.SelectedItem = chatID2
+        loadingBox.Visible = False
+    End Sub
 
     Private Sub chatCard(position As String, chatName As String, chatMessage As String)
         Panel1.VerticalScroll.Value = Panel1.VerticalScroll.Maximum
         Dim groupBox1 As New GroupBox()
 
-        groupBox1.Text = chatName & "-" & Len(chatMessage)
+        groupBox1.Text = chatName
 
         Dim groupBoxHeight As Integer = 100
 
@@ -137,22 +157,22 @@ Public Class Form1
 
         groupBox1.Text = chatName
 
-        Dim groupBoxHeight As Integer = 600
+        Dim groupBoxHeight As Integer = 400
 
 
-        groupBox1.Width = 700
+        groupBox1.Width = 400
         groupBox1.Height = groupBoxHeight
 
         If position = "left" Then
             groupBox1.Location = New Point(10, lastHeightChats)
         Else
-            groupBox1.Location = New Point(600, lastHeightChats)
+            groupBox1.Location = New Point(300, lastHeightChats)
         End If
 
         Dim pictureBox1 As New PictureBox()
         pictureBox1.Image = Image.FromFile(imagePath) ' Ruta de la imagen que quieres mostrar
         pictureBox1.SizeMode = PictureBoxSizeMode.StretchImage
-        pictureBox1.Size = New Size(500, 500) ' Tamaño de la imagen en el GroupBox
+        pictureBox1.Size = New Size(300, 300) ' Tamaño de la imagen en el GroupBox
         pictureBox1.Location = New Point(50, 50) ' Posición de la imagen en el GroupBox
         groupBox1.Controls.Add(pictureBox1)
 
@@ -167,15 +187,16 @@ Public Class Form1
 
     End Sub
 
-    Private Sub TextBoxChat_TextChanged(sender As Object, e As EventArgs) Handles TextBoxChat.TextChanged
-        If Len(TextBoxChat.Text) > 0 Then
-            send_btn.Enabled = True
-        Else
-            send_btn.Enabled = False
-        End If
-    End Sub
-
     Private Sub Button2_Click(sender As Object, e As EventArgs) Handles Button2.Click
+        ListBox_history.ClearSelected()
+        If chatID2.Equals("none") Then
+            cantidadChats = 0
+            lastHeightChats = 20
+            RadioBtn_texto.Checked = True
+            loadingBox.Visible = False
+            Return
+        End If
+
         ClearPanelExceptLogoBienvenida()
         cantidadChats = 0
         lastHeightChats = 20
@@ -184,6 +205,7 @@ Public Class Form1
         ClearPanelExceptLogoBienvenida()
         LabelBievenida.Text = ""
         LogoBienvenida.Visible = True
+        loadingBox.Visible = False
 
         Dim texto As String = "Bienvenido a Bong"
         Dim letras As Char() = texto.ToCharArray()
@@ -203,7 +225,7 @@ Public Class Form1
                                 End Sub
         ClearPanelExceptLogoBienvenida()
 
-        conversacionID = 0
+        chatID2 = "none"
     End Sub
 
     Private Sub ClearPanelExceptLogoBienvenida()
@@ -230,7 +252,7 @@ Public Class Form1
             Me.BackColor = SystemColors.Control
             Panel1.BackColor = SystemColors.Control
             ListBox_history.BackColor = SystemColors.Control
-            ListBox_favorito.BackColor = SystemColors.Control
+
             Btn_plus.Enabled = True
         End If
     End Sub
@@ -241,12 +263,12 @@ Public Class Form1
             Me.BackColor = Color.FromArgb(245, 218, 223)
             Panel1.BackColor = Color.FromArgb(245, 218, 223)
             ListBox_history.BackColor = Color.FromArgb(245, 218, 223)
-            ListBox_favorito.BackColor = Color.FromArgb(245, 218, 223)
+
             Btn_plus.Enabled = False
         End If
     End Sub
 
-    Private Sub Btn_plus_Click(sender As Object, e As EventArgs) Handles Btn_plus.Click
+    Private Async Sub Btn_plus_Click(sender As Object, e As EventArgs) Handles Btn_plus.Click
         Try
             Dim opf As New OpenFileDialog
             opf.Filter = "Image Files(*.jpg; *.jpeg; *png)|*.jpg;*.jpeg;*.png"
@@ -257,7 +279,11 @@ Public Class Form1
                 Dim fileExtension As String = Path.GetExtension(imagePath).ToLower()
 
                 If fileExtension = ".jpg" Or fileExtension = ".jpeg" Or fileExtension = ".png" Then
-                    chatImageCard("rigth", "Alan", imagePath)
+                    loadingBox.Visible = True
+                    chatImageCard("rigth", Inicio.nombreBD, imagePath)
+                    BaseD2.guardar_chat("user", "image", imagePath, chatID2)
+                    Dim textoTemp As String = Await textGenerate.image2text(imagePath)
+                    chatCard("left", "Bong", textoTemp)
                 Else
                     MsgBox("El archivo seleccionado no es una imagen", MsgBoxStyle.Critical)
                 End If
@@ -267,6 +293,8 @@ Public Class Form1
         Catch ex As Exception
             Debug.Print("Error")
             MsgBox("El archivo seleccionado no es una imagen", MsgBoxStyle.Critical)
+        Finally
+            loadingBox.Visible = False
         End Try
     End Sub
 
@@ -275,25 +303,119 @@ Public Class Form1
         cantidadChats = 0
         lastHeightChats = 20
         RadioBtn_texto.Checked = True
-
+        ClearPanelExceptLogoBienvenida()
         LabelBievenida.Text = ""
         LogoBienvenida.Visible = False
 
         ClearPanelExceptLogoBienvenida()
+        ClearPanelExceptLogoBienvenida()
 
-        'MsgBox("You have selected " + ListBox_history.SelectedItem.ToString())
-        'MsgBox("Chat ID -->" & BaseD.GetChatID(ListBox_history.SelectedItem.ToString()))
-        conversacionID = BaseD.GetChatID(ListBox_history.SelectedItem.ToString())
-        'MsgBox(ListBox_history.SelectedItem.ToString(), conversacionID)
+        Try
+            If ListBox_history.SelectedItem = Nothing Then
+                Return
+            End If
 
-        Dim ConverU As List(Of String) = BaseD.GetContentByChatIDUsuario(BaseD.GetChatID(ListBox_history.SelectedItem.ToString()))
-        Dim ConverB As List(Of String) = BaseD.GetContentByChatIDBong(BaseD.GetChatID(ListBox_history.SelectedItem.ToString()))
-        Dim Indice As Integer = 0
-        For Each ChatConver As String In ConverU
-            '    ListBox_favorito.Items.Add(ChatConver)
-            chatCard("right", "Alan", ChatConver)
-            chatCard("left", "Bong", ConverB(Indice))
-            Indice = Indice + 1
-        Next
+            chatID2 = ListBox_history.SelectedItem.ToString()
+
+            Dim listaDatos As List(Of ChatData) = BaseD2.GetContentByChatIDUsuario(chatID2)
+
+            For Each datos As ChatData In listaDatos
+
+
+                If datos.Who.Equals("bong") Then
+                    If datos.Type.Equals("text") Then
+                        chatCard("left", "Bong", datos.Message)
+                    Else
+                        chatImageCard("left", "Bong", datos.Message)
+                    End If
+                Else
+                    If datos.Type.Equals("text") Then
+                        chatCard("right", Inicio.nombreBD, datos.Message)
+                    Else
+                        chatImageCard("right", Inicio.nombreBD, datos.Message)
+                    End If
+                End If
+
+            Next
+        Catch ex As Exception
+            MsgBox("Error ocurrido desconocido", MsgBoxStyle.Critical)
+        End Try
+
+    End Sub
+
+    Private Sub Button3_Click(sender As Object, e As EventArgs) Handles Button3.Click
+        Me.Hide()
+        Inicio.Show()
+    End Sub
+
+
+    Protected Overrides Function ProcessCmdKey(ByRef msg As System.Windows.Forms.Message,
+                                           ByVal keyData As System.Windows.Forms.Keys) _
+                                           As Boolean
+
+        If msg.WParam.ToInt32() = CInt(Keys.Enter) Then
+            If Len(TextBoxChat.Text) > 0 Then
+                EnviarChat()
+            Else
+                MsgBox("No puedes enviar un mensaje vacio", MsgBoxStyle.Critical)
+            End If
+            Return True
+        End If
+        Return MyBase.ProcessCmdKey(msg, keyData)
+    End Function
+
+    Private Sub TextBoxChat_TextChanged_1(sender As Object, e As EventArgs) Handles TextBoxChat.TextChanged
+        If Len(TextBoxChat.Text) > 0 Then
+            send_btn.Enabled = True
+        Else
+            send_btn.Enabled = False
+        End If
+    End Sub
+
+    Private Sub btn_delete_message_Click(sender As Object, e As EventArgs) Handles btn_delete_message.Click
+        If chatID2.Equals("none") Then
+            MsgBox("Debe de seleccionar un grupo de mensajes en el historial de chats, para eliminar.", MsgBoxStyle.Critical)
+        Else
+            Dim respuesta = BaseD2.EliminarPorGroupID(chatID2)
+            MsgBox("Se a eliminado correactamente.", MsgBoxStyle.Information)
+            If respuesta > 0 Then
+                ClearPanelExceptLogoBienvenida()
+                cantidadChats = 0
+                lastHeightChats = 20
+                RadioBtn_texto.Checked = True
+                ClearPanelExceptLogoBienvenida()
+
+                LabelBievenida.Text = ""
+                LogoBienvenida.Visible = True
+                loadingBox.Visible = False
+
+                Dim texto As String = "Bienvenido a Bong"
+                Dim letras As Char() = texto.ToCharArray()
+
+                Dim timer1 As New Timer()
+                timer1.Interval = 100
+                timer1.Enabled = True
+
+                Dim i As Integer = 0
+                AddHandler timer1.Tick, Sub()
+                                            If i < letras.Length Then
+                                                LabelBievenida.Text += letras(i)
+                                                i += 1
+                                            Else
+                                                timer1.Enabled = False
+                                            End If
+                                        End Sub
+                ClearPanelExceptLogoBienvenida()
+
+                ListBox_history.Items.Clear()
+                chatID2 = "none"
+
+                Dim chat_group As List(Of String) = BaseD2.consultar_historialChats()
+
+                For Each chat_group2 As String In chat_group
+                    ListBox_history.Items.Add(chat_group2)
+                Next
+            End If
+        End If
     End Sub
 End Class
